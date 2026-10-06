@@ -10,40 +10,40 @@ from query_planner import plan_query
 from tools.arxiv_search import search_arxiv
 
 
-def run(question, max_papers=5, db_path=db.DB_PATH, fresh=True):
+def run(question, max_papers=5, db_path=db.DB_PATH, fresh=True, log=print):
     if fresh:
         Path(db_path).unlink(missing_ok=True)
     db.init_db(db_path)
 
     query = plan_query(question)
-    print(f"[plan]  query: {query}")
+    log(f"[plan]  query: {query}")
     papers = search_arxiv(query, max_results=max_papers, db_path=db_path)
     if not papers:
-        print("        no results, falling back to the raw question")
+        log("        no results, falling back to the raw question")
         papers = search_arxiv(question, max_results=max_papers, db_path=db_path)
     source_ids = [p["source_id"] for p in papers]
-    print(f"[1/4] search:   {len(source_ids)} sources")
+    log(f"[1/4] search:   {len(source_ids)} sources")
     for p in papers:
-        print(f"        - {p['title']}")
+        log(f"        - {p['title']}")
 
     researcher.extract_claims(question, source_ids, db_path)
     n_claims = len(db.get_claims("unchecked", db_path))
-    print(f"[2/4] extract:  {n_claims} claims")
+    log(f"[2/4] extract:  {n_claims} claims")
 
     results = fact_checker.check_all(db_path)
     counts = Counter(r["status"] for r in results.values())
-    print(f"[3/4] check:    {dict(counts)}")
+    log(f"[3/4] check:    {dict(counts)}")
 
     out = writer.write_report(question, db_path)
-    print(f"[4/4] write:    {len(out['invalid_citations'])} invalid citations, "
-          f"{len(out['uncited_sentences'])} uncited sentences")
+    log(f"[4/4] write:    {len(out['invalid_citations'])} invalid citations, "
+        f"{len(out['uncited_sentences'])} uncited sentences")
 
     if out["ok"]:
         Path("reports").mkdir(exist_ok=True)
         Path("reports/report.md").write_text(out["report"], encoding="utf-8")
-        print("        saved to reports/report.md")
+        log("        saved to reports/report.md")
     else:
-        print("        REJECTED: report failed the citation check and was NOT saved")
+        log("        REJECTED: report failed the citation check and was NOT saved")
     return out
 
 

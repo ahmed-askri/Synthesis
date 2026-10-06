@@ -1,0 +1,318 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Synthesis</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&family=Newsreader:opsz,wght@6..72,400;6..72,500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --paper: #F3F5F8; --field: #FFFFFF; --ink: #141A24; --muted: #5A6577; --rule: #D5DBE4;
+  --accent: #2B45D4; --accent-soft: #E3E8FB; --on-accent: #FFFFFF; --ok: #12775C;
+  --sans: "Instrument Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --serif: "Newsreader", Georgia, "Times New Roman", serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper: #0E131A; --field: #151C26; --ink: #E6EBF2; --muted: #93A0B3; --rule: #263040;
+    --accent: #93A6FF; --accent-soft: #1B2442; --on-accent: #0E131A; --ok: #4FC9A4;
+  }
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { margin: 0; background: var(--paper); color: var(--ink); font: 16px/1.5 var(--sans); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.wrap { max-width: 1040px; margin: 0 auto; padding: 0 16px 64px; }
+
+header { display: flex; align-items: center; justify-content: space-between; padding: 22px 0 8px; }
+.wordmark { font-weight: 600; font-size: 17px; letter-spacing: -0.01em; }
+.link-btn { background: none; border: 0; padding: 4px 0; color: var(--accent); font: inherit; cursor: pointer;
+  text-decoration: underline; text-underline-offset: 3px; }
+
+h1, h2.q { font-family: var(--serif); font-weight: 400; letter-spacing: -0.02em; margin: 0; }
+h1 { font-size: clamp(34px, 5.4vw, 54px); line-height: 1.08; max-width: 18ch; margin-top: clamp(40px, 9vh, 96px); }
+.lede { color: var(--muted); font-size: 18px; max-width: 52ch; margin: 18px 0 32px; }
+
+form { max-width: 680px; }
+.field { display: flex; gap: 10px; align-items: flex-end; background: var(--field);
+  border: 1px solid var(--rule); border-radius: 12px; padding: 10px 10px 10px 16px; }
+.field:focus-within { border-color: var(--accent); }
+textarea { flex: 1; border: 0; background: transparent; color: var(--ink); font: 18px/1.45 var(--sans);
+  resize: none; padding: 8px 0; max-height: 200px; outline: none; }
+textarea::placeholder { color: var(--muted); }
+.primary { background: var(--accent); color: var(--on-accent); border: 0; border-radius: 9px; padding: 11px 20px;
+  font: 600 15px var(--sans); cursor: pointer; }
+.primary:disabled { opacity: .45; cursor: not-allowed; }
+.form-error { color: #B3261E; font-size: 14px; margin: 10px 2px 0; min-height: 1.2em; }
+@media (prefers-color-scheme: dark) { .form-error { color: #FF8A80; } }
+.examples { list-style: none; margin: 22px 0 0; padding: 0; display: grid; gap: 6px; }
+
+.q { font-size: clamp(26px, 3.6vw, 34px); line-height: 1.2; max-width: 26ch; margin-top: clamp(28px, 6vh, 56px); }
+.steps { list-style: none; margin: 36px 0 0; padding: 0; display: grid; gap: 16px; max-width: 560px; }
+.steps li { display: grid; grid-template-columns: 20px 1fr; gap: 12px; color: var(--muted); font-size: 17px; }
+.dot { width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--rule); margin-top: 7px; }
+.steps li.done { color: var(--ink); }
+.steps li.done .dot { background: var(--ok); border-color: var(--ok); }
+.steps li.current { color: var(--ink); }
+.steps li.current .dot { background: var(--accent); border-color: var(--accent); animation: pulse 1.5s ease-in-out infinite; }
+@keyframes pulse {
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 45%, transparent); }
+  50% { box-shadow: 0 0 0 7px transparent; }
+}
+@media (prefers-reduced-motion: reduce) { .steps li.current .dot { animation: none; } }
+.found { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 4px; font-size: 14px; color: var(--muted); }
+.hint { color: var(--muted); font-size: 14px; margin-top: 28px; }
+
+.layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 36px; }
+@media (min-width: 980px) { .layout { grid-template-columns: minmax(0, 680px) 280px; gap: 64px; } }
+.ledger { color: var(--muted); font-size: 15px; margin: 14px 0 28px; max-width: 60ch; }
+.ledger::before { content: "\2713\00a0"; color: var(--ok); font-weight: 600; }
+.body p { font: 19px/1.72 var(--serif); margin: 0 0 1.1em; max-width: 64ch; }
+.cite { font: 600 11px var(--sans); color: var(--accent); background: var(--accent-soft); border: 0; border-radius: 4px;
+  padding: 1px 6px; margin-left: 3px; cursor: pointer; position: relative; top: -0.4em; }
+.cite:hover { filter: brightness(0.95); }
+
+aside { align-self: start; }
+@media (min-width: 980px) { aside { position: sticky; top: 24px; border-left: 1px solid var(--rule); padding-left: 28px; } }
+aside h3 { font: 600 15px var(--sans); margin: 0 0 14px; }
+.sources { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.sources li { display: grid; grid-template-columns: 26px 1fr; gap: 6px; padding: 8px 8px 8px 6px; margin-left: -6px;
+  border-radius: 8px; font-size: 15px; line-height: 1.4; }
+.sources li.active { background: var(--accent-soft); }
+.sources .num { font: 600 11px var(--sans); color: var(--accent); background: var(--accent-soft); border-radius: 4px;
+  height: 20px; line-height: 20px; text-align: center; margin-top: 1px; }
+.sources li.active .num { background: var(--paper); }
+.sources a { color: var(--ink); text-underline-offset: 3px; }
+.note { color: var(--muted); font-size: 13px; margin-top: 18px; }
+
+.problem { max-width: 560px; margin-top: clamp(40px, 9vh, 96px); }
+.problem h2 { font: 400 clamp(26px, 3.6vw, 34px)/1.2 var(--serif); margin: 0 0 12px; }
+.problem p { color: var(--muted); margin: 0 0 24px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <span class="wordmark">Synthesis</span>
+    <button class="link-btn" id="newQ" type="button" hidden>New question</button>
+  </header>
+
+  <section id="ask" hidden>
+    <h1>Ask a question about AI agent research</h1>
+    <p class="lede">Synthesis reads recent arXiv papers and answers with cited findings. Every claim is checked against its source before it reaches you.</p>
+    <form id="form">
+      <div class="field">
+        <textarea id="q" rows="1" maxlength="500" placeholder="For example: how do multi-agent LLM systems fail?" aria-label="Your question"></textarea>
+        <button class="primary" id="go" type="submit" disabled>Ask</button>
+      </div>
+      <p class="form-error" id="formError" role="alert"></p>
+    </form>
+    <ul class="examples" id="examples"></ul>
+  </section>
+
+  <section id="working" hidden>
+    <h2 class="q" id="workingQuestion"></h2>
+    <ol class="steps" id="steps" aria-live="polite"></ol>
+    <p class="hint">This usually takes around a minute.</p>
+  </section>
+
+  <section id="result" hidden>
+    <div class="layout">
+      <article>
+        <h2 class="q" id="resultQuestion"></h2>
+        <p class="ledger" id="ledger"></p>
+        <div class="body" id="reportBody"></div>
+      </article>
+      <aside>
+        <h3>Sources</h3>
+        <ol class="sources" id="sourceList"></ol>
+        <p class="note">Claims are checked against each paper's abstract, not its full text.</p>
+      </aside>
+    </div>
+  </section>
+
+  <section id="problem" class="problem" hidden>
+    <h2 id="problemTitle"></h2>
+    <p id="problemText"></p>
+    <button class="primary" id="again" type="button">Ask something else</button>
+  </section>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const VIEWS = ["ask", "working", "result", "problem"];
+const STEPS = ["Finding papers", "Reading the papers", "Checking every claim", "Writing the report"];
+const EXAMPLES = [
+  "How do multi-agent LLM systems fail?",
+  "How should LLM agents be evaluated?",
+  "How are LLM agents defended against prompt injection?",
+];
+let timer = null, lastTitleCount = -1;
+
+function show(name) {
+  VIEWS.forEach((v) => { $(v).hidden = v !== name; });
+  $("newQ").hidden = !(name === "result" || name === "problem");
+}
+
+/* ask view */
+const ta = $("q");
+function sync() {
+  ta.style.height = "auto";
+  ta.style.height = ta.scrollHeight + "px";
+  $("go").disabled = ta.value.trim().length < 5;
+}
+ta.addEventListener("input", sync);
+ta.addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); if (!$("go").disabled) submit(); }
+});
+$("form").addEventListener("submit", (e) => { e.preventDefault(); submit(); });
+EXAMPLES.forEach((text) => {
+  const li = document.createElement("li");
+  const b = document.createElement("button");
+  b.type = "button"; b.className = "link-btn"; b.textContent = text;
+  b.addEventListener("click", () => { ta.value = text; sync(); submit(); });
+  li.append(b); $("examples").append(li);
+});
+$("newQ").addEventListener("click", goAsk);
+$("again").addEventListener("click", goAsk);
+function goAsk() { show("ask"); sync(); ta.focus(); }
+
+function submit() {
+  const question = ta.value.trim();
+  if (question.length < 5) { $("formError").textContent = "Write a question of at least 5 characters."; return; }
+  ask(question);
+}
+
+async function ask(question) {
+  $("formError").textContent = ""; $("go").disabled = true;
+  let res, data = {};
+  try {
+    res = await fetch("/api/ask", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ question }) });
+    data = await res.json().catch(() => ({}));
+  } catch (e) {
+    $("formError").textContent = "Synthesis lost contact with its local server. Check that the terminal running server.py is still open.";
+    sync(); return;
+  }
+  if (!res.ok) { $("formError").textContent = data.error || "The question could not be sent."; sync(); return; }
+  startWorking(question);
+}
+
+/* working view */
+function buildSteps() {
+  const ol = $("steps"); ol.replaceChildren(); lastTitleCount = -1;
+  STEPS.forEach((label, i) => {
+    const li = document.createElement("li"); li.id = "step-" + i;
+    const dot = document.createElement("span"); dot.className = "dot";
+    const cell = document.createElement("div");
+    const text = document.createElement("span"); text.textContent = label;
+    cell.append(text);
+    if (i === 0) { const ul = document.createElement("ul"); ul.className = "found"; ul.id = "found"; cell.append(ul); }
+    li.append(dot, cell); ol.append(li);
+  });
+}
+function renderSteps(stage, titles) {
+  STEPS.forEach((_, i) => {
+    $("step-" + i).className = i < stage ? "done" : i === stage ? "current" : "";
+  });
+  if (titles.length !== lastTitleCount) {
+    lastTitleCount = titles.length;
+    const ul = $("found"); ul.replaceChildren();
+    titles.forEach((t) => { const li = document.createElement("li"); li.textContent = t; ul.append(li); });
+  }
+}
+function startWorking(question) {
+  $("workingQuestion").textContent = question;
+  buildSteps(); renderSteps(0, []); show("working"); poll();
+}
+function poll() {
+  clearInterval(timer);
+  timer = setInterval(async () => {
+    let s;
+    try { s = await (await fetch("/api/status", { cache: "no-store" })).json(); } catch (e) { return; }
+    if (s.state === "running") renderSteps(s.stage, s.titles);
+    else { clearInterval(timer); finish(s); }
+  }, 800);
+}
+function finish(s) {
+  if (s.state === "done" && s.result && s.result.ok) { renderResult(s.question, s.result); show("result"); return; }
+  if (s.state === "done") {
+    const none = /no supported claims/i.test(s.result.reason || "");
+    problem("There is no answer to show.", none
+      ? "None of the claims found could be verified against the papers, so Synthesis has nothing it can stand behind. Try a more specific question."
+      : "The draft did not pass its citation check, so it was not shown. Ask again, or rephrase the question.");
+    return;
+  }
+  if (s.state === "error") { const [t, d] = explain(s.error || ""); problem(t, d); return; }
+  goAsk();
+}
+function explain(msg) {
+  if (/429|rate.?limit/i.test(msg)) return ["The model is busy.", "The free Groq tier hit its rate limit. Wait a minute, then ask again."];
+  if (/connection|timed out|resolve|network/i.test(msg)) return ["Synthesis could not reach the internet.", "Check your connection, then ask again."];
+  return ["The research stopped before it finished.", msg];
+}
+function problem(title, text) {
+  $("problemTitle").textContent = title; $("problemText").textContent = text; show("problem");
+}
+
+/* result view: built with textContent only, because model and paper text are untrusted */
+function renderResult(question, r) {
+  $("resultQuestion").textContent = question;
+  const order = r.sources.map((s) => s.id);
+  const label = (id) => order.indexOf(id) + 1;
+  const c = r.claims, total = c.supported + c.partial + c.unsupported, left = c.partial + c.unsupported;
+  $("ledger").textContent = left === 0
+    ? `All ${total} claims passed verification against their sources.`
+    : `${c.supported} of ${total} claims passed verification against their sources. ${left} ${left === 1 ? "was" : "were"} left out because the papers did not fully support ${left === 1 ? "it" : "them"}.`;
+
+  const body = $("reportBody"); body.replaceChildren();
+  r.body.split(/\n{2,}/).forEach((par) => {
+    const p = document.createElement("p");
+    par.split(/(\[\d+\])/).forEach((part) => {
+      const m = part.match(/^\[(\d+)\]$/);
+      if (m) {
+        const n = label(Number(m[1]));
+        if (n > 0) {
+          const b = document.createElement("button");
+          b.type = "button"; b.className = "cite"; b.textContent = n;
+          b.setAttribute("aria-label", "Source " + n);
+          b.addEventListener("click", () => focusSource(n));
+          p.append(b);
+        }
+      } else if (part) p.append(document.createTextNode(part));
+    });
+    body.append(p);
+  });
+
+  const list = $("sourceList"); list.replaceChildren();
+  r.sources.forEach((s, i) => {
+    const li = document.createElement("li"); li.id = "src-" + (i + 1);
+    const num = document.createElement("span"); num.className = "num"; num.textContent = i + 1;
+    const a = document.createElement("a"); a.textContent = s.title;
+    if (/^https?:\/\//.test(s.url)) { a.href = s.url; a.target = "_blank"; a.rel = "noopener noreferrer"; }
+    li.append(num, a); list.append(li);
+  });
+}
+function focusSource(n) {
+  document.querySelectorAll(".sources li").forEach((li) => li.classList.remove("active"));
+  const li = $("src-" + n);
+  if (!li) return;
+  li.classList.add("active");
+  const calm = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  li.scrollIntoView({ block: "nearest", behavior: calm ? "auto" : "smooth" });
+}
+
+/* on load: pick up a question that is already running, or show the ask view */
+(async function init() {
+  try {
+    const s = await (await fetch("/api/status", { cache: "no-store" })).json();
+    if (s.state === "running") { startWorking(s.question); return; }
+    if (s.state === "done" && s.result) { finish(s); return; }
+  } catch (e) { /* server not ready: fall through to the ask view */ }
+  goAsk();
+})();
+</script>
+</body>
+</html>
