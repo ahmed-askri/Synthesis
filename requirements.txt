@@ -1,0 +1,5 @@
+arxiv
+tavily-python
+python-dotenv
+groq
+pytest
