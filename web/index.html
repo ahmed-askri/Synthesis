@@ -141,7 +141,7 @@ aside h3 { font: 600 15px var(--sans); margin: 0 0 14px; }
     <div class="hero">
       <div>
         <h1>Ask a question about AI agent research</h1>
-        <p class="lede">Synthesis reads recent arXiv papers and answers with cited findings. Every claim is checked against its source before it reaches you.</p>
+        <p class="lede">Synthesis reads recent arXiv papers and web sources and answers with cited findings. Every claim is checked against its source before it reaches you.</p>
         <form id="form">
           <div class="field">
             <textarea id="q" rows="1" maxlength="500" placeholder="For example: how do multi-agent LLM systems fail?" aria-label="Your question"></textarea>
@@ -179,8 +179,7 @@ aside h3 { font: 600 15px var(--sans); margin: 0 0 14px; }
       <aside>
         <h3>Sources</h3>
         <ol class="sources" id="sourceList"></ol>
-        <p class="note">Claims are checked against each paper's abstract, not its full text.</p>
-      </aside>
+        <p class="note">Claims are checked against each source's abstract or snippet, not its full text.</p>
     </div>
   </section>
 

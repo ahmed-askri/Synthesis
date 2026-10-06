@@ -1,6 +1,6 @@
 import re
 import unicodedata
-
+import html
 import evidence_db as db
 
 ZERO_WIDTH = re.compile(r"[\u200b-\u200f\u202a-\u202e\u2060-\u2064\ufeff]")
@@ -62,3 +62,20 @@ def scan_sources(source_ids, db_path=db.DB_PATH):
             flagged.append({"source_id": sid, "title": src["title"],
                             "reasons": sorted({name for name, _ in hits})})
     return flagged
+
+TAG = re.compile(r"<[^>]+>")
+SCRIPT = re.compile(r"<(script|style)\b.*?</\1>", re.I | re.S)
+COMMENT = re.compile(r"<!--.*?-->", re.S)
+CONTROL = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
+
+
+def clean_web_text(text, max_len=4000):
+    """Strip markup where hidden instructions like to live, and cap the length."""
+    text = COMMENT.sub(" ", text)
+    text = SCRIPT.sub(" ", text)
+    text = TAG.sub(" ", text)
+    text = html.unescape(text)
+    text = CONTROL.sub("", text)
+    text = re.sub(r"[ \t]+", " ", text)
+    text = re.sub(r"\n{3,}", "\n\n", text)
+    return text.strip()[:max_len]

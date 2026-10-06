@@ -4,6 +4,7 @@ from dotenv import load_dotenv
 from tavily import TavilyClient
 
 import evidence_db as db
+from guardrails.sanitize import clean_web_text
 
 load_dotenv()
 
@@ -21,7 +22,7 @@ def search_web(query: str, max_results: int = 5, db_path=db.DB_PATH, client=None
 
     results = []
     for item in response.get("results", []):
-        text = f"{item['title']}\n\n{item['content']}"
+        text = clean_web_text(f"{item['title']}\n\n{item['content']}")
         source_id = db.add_source(item["url"], item["title"], text, "web", db_path)
         results.append({
             "source_id": source_id,
