@@ -1,17 +1,18 @@
 import sys
 from collections import Counter
-from pathlib import Path
 
 import evidence_db as db
 import fact_checker
 import researcher
 import writer
+from guardrails.approval import cli_approve, save_with_approval
 from guardrails.sanitize import scan_sources
+from pathlib import Path
 from query_planner import plan_query
 from tools.arxiv_search import search_arxiv
 
 
-def run(question, max_papers=5, db_path=db.DB_PATH, fresh=True, log=print):
+def run(question, max_papers=5, db_path=db.DB_PATH, fresh=True, log=print, approve=None):
     if fresh:
         Path(db_path).unlink(missing_ok=True)
     db.init_db(db_path)
@@ -44,16 +45,16 @@ def run(question, max_papers=5, db_path=db.DB_PATH, fresh=True, log=print):
     log(f"[4/4] write:    {len(out['invalid_citations'])} invalid citations, "
         f"{len(out['uncited_sentences'])} uncited sentences")
 
-    if out["ok"]:
-        Path("reports").mkdir(exist_ok=True)
-        Path("reports/report.md").write_text(out["report"], encoding="utf-8")
-        log("        saved to reports/report.md")
-    else:
-        log("        REJECTED: report failed the citation check and was NOT saved")
+    if not out["ok"]:
+        log("        REJECTED: report failed the citation check")
+    elif approve is not None:
+        saved = save_with_approval(out["report"], approve)
+        log(f"        saved to {saved}" if saved else "        not saved (no approval)")
     return out
 
 
 if __name__ == "__main__":
     q = " ".join(sys.argv[1:]) or "How should LLM agents be evaluated?"
-    result = run(q)
-    print("\n" + (result["report"] or result["note"]))
+    result = run(q, approve=cli_approve)
+    if not result["ok"]:
+        print("\n" + (result["note"] or "No report was produced."))
