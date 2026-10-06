@@ -55,3 +55,10 @@ def test_uncited_sentence_is_flagged(tmp_path):
     path, s1 = _setup(tmp_path)
     out = write_report("q?", path, ask_fn=lambda s, u: f"Cited fact. [{s1}] Unsupported opinion.")
     assert out["uncited_sentences"] == ["Unsupported opinion."]
+
+def test_retry_fixes_a_bad_first_draft(tmp_path):
+    path, s1 = _setup(tmp_path)
+    drafts = iter(["No citation here.", f"Now it is cited [{s1}]."])
+    out = write_report("q?", path, ask_fn=lambda s, u: next(drafts))
+    assert out["ok"] is True
+    assert out["uncited_sentences"] == []
