@@ -73,6 +73,7 @@ textarea::placeholder { color: var(--muted); }
 .primary { background: var(--accent); color: var(--on-accent); border: 0; border-radius: 9px; padding: 11px 20px;
   font: 600 15px var(--sans); cursor: pointer; }
 .primary:disabled { opacity: .45; cursor: not-allowed; }
+.primary.small { padding: 7px 14px; font-size: 14px; }
 .form-error { color: var(--danger); font-size: 14px; margin: 10px 2px 0; min-height: 1.2em; }
 .examples { list-style: none; margin: 22px 0 0; padding: 0; display: grid; gap: 6px; }
 
@@ -103,7 +104,12 @@ textarea::placeholder { color: var(--muted); }
 .ledger { color: var(--muted); font-size: 15px; margin: 14px 0 8px; max-width: 60ch; }
 .ledger::before { content: "\2713\00a0"; color: var(--ok); font-weight: 600; }
 .trust { color: var(--muted); font-size: 15px; margin: 0 0 8px; max-width: 60ch; }
-.actions { display: flex; gap: 20px; margin: 0 0 26px; font-size: 14px; }
+.actions { display: flex; gap: 20px; margin: 0 0 26px; font-size: 14px; flex-wrap: wrap; }
+.confirm { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin: -10px 0 22px;
+  padding: 12px 14px; border: 1px solid var(--accent); border-radius: 10px;
+  background: var(--accent-soft); font-size: 15px; max-width: 60ch; }
+.saved { color: var(--ok); font-size: 15px; margin: -10px 0 22px; }
+.saved.error { color: var(--danger); }
 .body p { font: 19px/1.72 var(--serif); margin: 0 0 1.1em; max-width: 64ch; }
 .cite { font: 600 11px var(--sans); color: var(--accent); background: var(--accent-soft); border: 0; border-radius: 4px;
   padding: 1px 6px; margin-left: 3px; position: relative; top: -0.4em; display: inline-block; line-height: 1.5; }
@@ -177,7 +183,14 @@ aside h3 { font: 600 15px var(--sans); margin: 0 0 14px; }
         <div class="actions">
           <button class="link-btn" id="copy" type="button">Copy as Markdown</button>
           <button class="link-btn" id="download" type="button">Download .md</button>
+          <button class="link-btn" id="save" type="button">Save to reports folder</button>
         </div>
+        <div class="confirm" id="confirm" hidden>
+          <span>Save this report to the reports folder?</span>
+          <button class="primary small" id="confirmYes" type="button">Yes, save</button>
+          <button class="link-btn" id="confirmNo" type="button">Cancel</button>
+        </div>
+        <p class="saved" id="saved" role="status" hidden></p>
         <div class="body" id="reportBody"></div>
       </article>
       <aside>
@@ -336,6 +349,8 @@ function problem(title, text) {
 
 /* result view: built with textContent only, because model and source text are untrusted */
 function renderResult(question, r) {
+  $("confirm").hidden = true;
+  $("saved").hidden = true;
   $("resultQuestion").textContent = question;
   const order = r.sources.map((s) => s.id);
   const label = (id) => order.indexOf(id) + 1;
@@ -408,6 +423,29 @@ $("download").addEventListener("click", () => {
   const a = document.createElement("a");
   a.href = url; a.download = "synthesis-report.md"; a.click();
   URL.revokeObjectURL(url);
+});
+
+/* saving to the reports folder needs an explicit yes */
+$("save").addEventListener("click", () => {
+  $("saved").hidden = true;
+  $("confirm").hidden = false;
+  $("confirmYes").focus();
+});
+$("confirmNo").addEventListener("click", () => { $("confirm").hidden = true; });
+$("confirmYes").addEventListener("click", async () => {
+  $("confirm").hidden = true;
+  const out = $("saved");
+  out.hidden = false; out.className = "saved";
+  try {
+    const res = await fetch("/api/save", { method: "POST",
+      headers: { "Content-Type": "application/json" }, body: "{}" });
+    const data = await res.json();
+    if (res.ok) out.textContent = "Saved to " + data.saved;
+    else { out.className = "saved error"; out.textContent = data.error || "Could not save."; }
+  } catch (e) {
+    out.className = "saved error";
+    out.textContent = "Could not reach the server. Is server.py still running?";
+  }
 });
 
 /* on load: pick up a question that is already running, or show the ask view */

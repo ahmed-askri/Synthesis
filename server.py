@@ -7,6 +7,7 @@ from pathlib import Path
 
 import evidence_db as db
 import pipeline
+from guardrails.approval import save_with_approval
 
 HOST, PORT = "127.0.0.1", 8000
 ALLOWED_HOSTS = {f"127.0.0.1:{PORT}", f"localhost:{PORT}"}
@@ -15,7 +16,7 @@ INDEX = WEB / "index.html"
 STATIC = {"/logo.png": "logo.png", "/favicon.png": "favicon.png"}
 
 STATE = {"state": "idle", "stage": 0, "titles": [], "result": None,
-         "error": None, "question": ""}
+         "error": None, "question": "", "report": ""}
 LOCK = threading.Lock()
 
 
@@ -47,8 +48,9 @@ def _build_result(out):
     for sid in ids:
         src = db.get_source(sid)
         if src:
-                sources.append({"id": sid, "title": src["title"], "url": src["url"],
+            sources.append({"id": sid, "title": src["title"], "url": src["url"],
                             "origin": src["origin"]})
+
     claims = db.get_claims()
     counts = {s: sum(1 for c in claims if c["status"] == s)
               for s in ("supported", "partial", "unsupported")}
@@ -60,7 +62,8 @@ def _work(question):
         out = pipeline.run(question, log=_log)
         result = _build_result(out)
         with LOCK:
-            STATE.update(state="done", stage=4, result=result)
+            STATE.update(state="done", stage=4, result=result,
+                         report=out["report"] if out["ok"] else "")
     except Exception as e:  # shown to the user in plain words by the page
         with LOCK:
             STATE.update(state="error", error=f"{type(e).__name__}: {e}"[:300])
@@ -90,20 +93,32 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(200, (WEB / STATIC[self.path]).read_bytes(), "image/png")
         if self.path == "/api/status":
             with LOCK:
-                snapshot = dict(STATE)
+                snapshot = {k: v for k, v in STATE.items() if k != "report"}
             return self._send(200, snapshot)
         self._send(404, {"error": "not found"})
+
+    def _save(self, length):
+        self.rfile.read(min(length, 4096))  # the body is not used
+        with LOCK:
+            report = STATE["report"] if STATE["state"] == "done" else ""
+        # the click in the page is the human approval
+        saved = save_with_approval(report, approve=lambda r: True)
+        if not saved:
+            return self._send(409, {"error": "There is no finished report to save."})
+        self._send(200, {"saved": saved})
 
     def do_POST(self):
         if not self._host_ok():
             return self._send(403, {"error": "forbidden"})
-        if self.path != "/api/ask":
-            return self._send(404, {"error": "not found"})
         if self.headers.get("Content-Type", "").split(";")[0] != "application/json":
             return self._send(415, {"error": "Expected JSON."})
         length = int(self.headers.get("Content-Length", 0))
         if length > 4096:
             return self._send(413, {"error": "That request is too large."})
+        if self.path == "/api/save":
+            return self._save(length)
+        if self.path != "/api/ask":
+            return self._send(404, {"error": "not found"})
         try:
             question = str(json.loads(self.rfile.read(length)).get("question", "")).strip()
         except (ValueError, AttributeError):
@@ -114,7 +129,7 @@ class Handler(BaseHTTPRequestHandler):
             if STATE["state"] == "running":
                 return self._send(409, {"error": "A question is already being researched."})
             STATE.update(state="running", stage=0, titles=[], result=None,
-                         error=None, question=question)
+                         error=None, question=question, report="")
         threading.Thread(target=_work, args=(question,), daemon=True).start()
         self._send(202, {"ok": True})
 
