@@ -5,8 +5,12 @@ import llm
 
 SYSTEM = (
     "You write a short, factual research report answering a question. "
-    "You are given verified claims, each with the source numbers that support it. "
+    "You are given verified claims, each with the source numbers that support it "
+    "and where it came from. "
     "Use ONLY these claims; add no outside facts, numbers or names. "
+    "Claims whose 'from' list contains web come from web pages, which are less reliable "
+    "than papers. Start each sentence built on such a claim with 'A web source reports that' "
+    "or 'According to a web article,' and never present it as established fact. "
     "EVERY sentence must end with at least one citation in square brackets, like [3] or [3][7]. "
     "Do not cite any number that is not given. "
     "Do not write introductions, conclusions or general statements. "
@@ -25,6 +29,16 @@ def _audit(body, allowed):
     return cited, invalid, uncited
 
 
+def _claim_line(claim, db_path):
+    origins = set()
+    for sid in claim["source_ids"]:
+        src = db.get_source(sid, db_path)
+        if src:
+            origins.add(src["origin"])
+    ids = ", ".join(map(str, claim["source_ids"]))
+    return f"- (sources: {ids}; from: {', '.join(sorted(origins))}) {claim['text']}"
+
+
 def write_report(question, db_path=db.DB_PATH, ask_fn=llm.ask, max_attempts=2):
     claims = db.get_claims("supported", db_path)
     if not claims:
@@ -32,7 +46,7 @@ def write_report(question, db_path=db.DB_PATH, ask_fn=llm.ask, max_attempts=2):
                 "uncited_sentences": [], "note": "No supported claims."}
 
     allowed = sorted({sid for c in claims for sid in c["source_ids"]})
-    lines = [f"- (sources: {', '.join(map(str, c['source_ids']))}) {c['text']}" for c in claims]
+    lines = [_claim_line(c, db_path) for c in claims]
     base = f"Question: {question}\n\nVerified claims:\n" + "\n".join(lines)
 
     user = base
@@ -53,7 +67,8 @@ def write_report(question, db_path=db.DB_PATH, ask_fn=llm.ask, max_attempts=2):
     refs = []
     for sid in sorted(cited & set(allowed)):
         src = db.get_source(sid, db_path)
-        refs.append(f"[{sid}] {src['title']} - {src['url']}")
+        tag = " (web)" if src["origin"] == "web" else ""
+        refs.append(f"[{sid}] {src['title']}{tag} - {src['url']}")
 
     report = body + "\n\n## References\n" + "\n".join(refs)
     ok = not invalid and not uncited

@@ -102,6 +102,7 @@ textarea::placeholder { color: var(--muted); }
 @media (min-width: 980px) { .layout { grid-template-columns: minmax(0, 680px) 280px; gap: 64px; } }
 .ledger { color: var(--muted); font-size: 15px; margin: 14px 0 8px; max-width: 60ch; }
 .ledger::before { content: "\2713\00a0"; color: var(--ok); font-weight: 600; }
+.trust { color: var(--muted); font-size: 15px; margin: 0 0 8px; max-width: 60ch; }
 .actions { display: flex; gap: 20px; margin: 0 0 26px; font-size: 14px; }
 .body p { font: 19px/1.72 var(--serif); margin: 0 0 1.1em; max-width: 64ch; }
 .cite { font: 600 11px var(--sans); color: var(--accent); background: var(--accent-soft); border: 0; border-radius: 4px;
@@ -120,6 +121,8 @@ aside h3 { font: 600 15px var(--sans); margin: 0 0 14px; }
   height: 20px; line-height: 20px; text-align: center; margin-top: 1px; }
 .sources li.active .num, .sp-src .num { background: var(--paper); }
 .sources a { color: var(--ink); text-underline-offset: 3px; }
+.tag { font: 600 11px var(--sans); color: var(--muted); border: 1px solid var(--rule); border-radius: 4px;
+  padding: 0 5px; white-space: nowrap; }
 .note { color: var(--muted); font-size: 13px; margin-top: 18px; }
 
 .problem { max-width: 560px; margin-top: clamp(40px, 9vh, 96px); }
@@ -141,7 +144,7 @@ aside h3 { font: 600 15px var(--sans); margin: 0 0 14px; }
     <div class="hero">
       <div>
         <h1>Ask a question about AI agent research</h1>
-        <p class="lede">Synthesis reads recent arXiv papers and web sources and answers with cited findings. Every claim is checked against its source before it reaches you.</p>
+        <p class="lede">Synthesis reads recent arXiv papers and web sources, and answers with cited findings. Every claim is checked against its source before it reaches you.</p>
         <form id="form">
           <div class="field">
             <textarea id="q" rows="1" maxlength="500" placeholder="For example: how do multi-agent LLM systems fail?" aria-label="Your question"></textarea>
@@ -170,6 +173,7 @@ aside h3 { font: 600 15px var(--sans); margin: 0 0 14px; }
       <article>
         <h2 class="q" id="resultQuestion"></h2>
         <p class="ledger" id="ledger"></p>
+        <p class="trust" id="trust" hidden></p>
         <div class="actions">
           <button class="link-btn" id="copy" type="button">Copy as Markdown</button>
           <button class="link-btn" id="download" type="button">Download .md</button>
@@ -180,6 +184,7 @@ aside h3 { font: 600 15px var(--sans); margin: 0 0 14px; }
         <h3>Sources</h3>
         <ol class="sources" id="sourceList"></ol>
         <p class="note">Claims are checked against each source's abstract or snippet, not its full text.</p>
+      </aside>
     </div>
   </section>
 
@@ -313,7 +318,7 @@ function finish(s) {
   if (s.state === "done") {
     const none = /no supported claims/i.test(s.result.reason || "");
     problem("There is no answer to show.", none
-      ? "None of the claims found could be verified against the papers, so Synthesis has nothing it can stand behind. Try a more specific question."
+      ? "None of the claims found could be verified against the sources, so Synthesis has nothing it can stand behind. Try a more specific question."
       : "The draft did not pass its citation check, so it was not shown. Ask again, or rephrase the question.");
     return;
   }
@@ -329,7 +334,7 @@ function problem(title, text) {
   $("problemTitle").textContent = title; $("problemText").textContent = text; show("problem");
 }
 
-/* result view: built with textContent only, because model and paper text are untrusted */
+/* result view: built with textContent only, because model and source text are untrusted */
 function renderResult(question, r) {
   $("resultQuestion").textContent = question;
   const order = r.sources.map((s) => s.id);
@@ -337,7 +342,13 @@ function renderResult(question, r) {
   const c = r.claims, total = c.supported + c.partial + c.unsupported, left = c.partial + c.unsupported;
   $("ledger").textContent = left === 0
     ? `All ${total} claims passed verification against their sources.`
-    : `${c.supported} of ${total} claims passed verification against their sources. ${left} ${left === 1 ? "was" : "were"} left out because the papers did not fully support ${left === 1 ? "it" : "them"}.`;
+    : `${c.supported} of ${total} claims passed verification against their sources. ${left} ${left === 1 ? "was" : "were"} left out because the sources did not fully support ${left === 1 ? "it" : "them"}.`;
+
+  const web = r.sources.filter((s) => s.origin === "web").length;
+  $("trust").hidden = !web;
+  $("trust").textContent = web
+    ? `${web} of ${r.sources.length} sources are web pages, which are less reliable than papers. They are tagged in the margin.`
+    : "";
 
   const body = $("reportBody"); body.replaceChildren();
   r.body.split(/\n{2,}/).forEach((par) => {
@@ -364,12 +375,18 @@ function renderResult(question, r) {
     const num = document.createElement("span"); num.className = "num"; num.textContent = i + 1;
     const a = document.createElement("a"); a.textContent = s.title;
     if (/^https?:\/\//.test(s.url)) { a.href = s.url; a.target = "_blank"; a.rel = "noopener noreferrer"; }
-    li.append(num, a); list.append(li);
+    const cell = document.createElement("div");
+    cell.append(a);
+    if (s.origin === "web") {
+      const tag = document.createElement("span"); tag.className = "tag"; tag.textContent = "web";
+      cell.append(" ", tag);
+    }
+    li.append(num, cell); list.append(li);
   });
 
   const text = r.body.replace(/\[(\d+)\]/g, (m, id) => (label(Number(id)) > 0 ? `[${label(Number(id))}]` : ""));
   markdown = `# ${question}\n\n${text}\n\n## References\n` +
-    r.sources.map((s, i) => `[${i + 1}] ${s.title} - ${s.url}`).join("\n") + "\n";
+    r.sources.map((s, i) => `[${i + 1}] ${s.title}${s.origin === "web" ? " (web)" : ""} - ${s.url}`).join("\n") + "\n";
 }
 function focusSource(n) {
   document.querySelectorAll(".sources li").forEach((li) => li.classList.remove("active"));

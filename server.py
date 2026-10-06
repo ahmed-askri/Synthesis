@@ -47,8 +47,8 @@ def _build_result(out):
     for sid in ids:
         src = db.get_source(sid)
         if src:
-            sources.append({"id": sid, "title": src["title"], "url": src["url"]})
-
+                sources.append({"id": sid, "title": src["title"], "url": src["url"],
+                            "origin": src["origin"]})
     claims = db.get_claims()
     counts = {s: sum(1 for c in claims if c["status"] == s)
               for s in ("supported", "partial", "unsupported")}

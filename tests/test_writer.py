@@ -62,3 +62,19 @@ def test_retry_fixes_a_bad_first_draft(tmp_path):
     out = write_report("q?", path, ask_fn=lambda s, u: next(drafts))
     assert out["ok"] is True
     assert out["uncited_sentences"] == []
+
+def test_web_claims_are_marked_for_the_writer(tmp_path):
+    path = tmp_path / "t.db"
+    db.init_db(path)
+    s = db.add_source("https://blog.example", "Blog", "text", "web", path)
+    cid = db.add_claim("Blogs say X.", [s], path)
+    db.set_claim_status(cid, "supported", path)
+    seen = {}
+
+    def fake(system, user):
+        seen["user"] = user
+        return f"A web source reports that X [{s}]."
+
+    out = write_report("q?", path, ask_fn=fake)
+    assert "from: web" in seen["user"]
+    assert "(web)" in out["report"]
