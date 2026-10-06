@@ -22,3 +22,20 @@ def test_search_web_saves_sources(tmp_path):
     saved = db.get_source(out[0]["source_id"], path)
     assert saved["origin"] == "web"
     assert "Evals matter." in saved["text"]
+
+class DomainTavily:
+    def __init__(self):
+        self.domains = "not called"
+
+    def search(self, query, max_results, search_depth, include_domains=None):
+        self.domains = include_domains
+        return {"results": []}
+
+
+def test_domain_list_is_passed_to_tavily(tmp_path):
+    path = tmp_path / "t.db"
+    db.init_db(path)
+    client = DomainTavily()
+    out = search_web("q", 3, db_path=path, client=client, include_domains=["arxiv.org"])
+    assert out == []
+    assert client.domains == ["arxiv.org"]

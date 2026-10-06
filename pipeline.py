@@ -10,7 +10,7 @@ from guardrails.approval import cli_approve, save_with_approval
 from guardrails.sanitize import scan_sources
 from query_planner import plan_query
 from tools.arxiv_search import search_arxiv
-from tools.web_search import search_web
+from tools.web_search import TRUSTED_DOMAINS, search_web
 
 
 def run(question, max_papers=5, max_web=3, db_path=db.DB_PATH, fresh=True,
@@ -28,7 +28,11 @@ def run(question, max_papers=5, max_web=3, db_path=db.DB_PATH, fresh=True,
 
     if use_web:
         try:
-            found += search_web(question, max_results=max_web, db_path=db_path)
+            web = search_web(question, max_results=max_web, db_path=db_path,
+                             include_domains=TRUSTED_DOMAINS)
+            if not web:
+                log("[web]   no results from trusted domains")
+            found += web
         except Exception as e:
             log(f"[web]   skipped: {type(e).__name__}: {e}")
 
