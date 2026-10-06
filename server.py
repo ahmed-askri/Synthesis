@@ -10,7 +10,9 @@ import pipeline
 
 HOST, PORT = "127.0.0.1", 8000
 ALLOWED_HOSTS = {f"127.0.0.1:{PORT}", f"localhost:{PORT}"}
-INDEX = Path(__file__).parent / "web" / "index.html"
+WEB = Path(__file__).parent / "web"
+INDEX = WEB / "index.html"
+STATIC = {"/logo.png": "logo.png", "/favicon.png": "favicon.png"}
 
 STATE = {"state": "idle", "stage": 0, "titles": [], "result": None,
          "error": None, "question": ""}
@@ -68,7 +70,8 @@ class Handler(BaseHTTPRequestHandler):
     def _send(self, code, body, ctype="application/json"):
         data = body if isinstance(body, bytes) else json.dumps(body).encode()
         self.send_response(code)
-        self.send_header("Content-Type", ctype + "; charset=utf-8")
+        ct = ctype if ctype.startswith("image/") else ctype + "; charset=utf-8"
+        self.send_header("Content-Type", ct)
         self.send_header("Content-Length", str(len(data)))
         self.send_header("Cache-Control", "no-store")
         self.end_headers()
@@ -83,6 +86,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(403, {"error": "forbidden"})
         if self.path == "/":
             return self._send(200, INDEX.read_bytes(), "text/html")
+        if self.path in STATIC:  # fixed list of files, nothing else can be requested
+            return self._send(200, (WEB / STATIC[self.path]).read_bytes(), "image/png")
         if self.path == "/api/status":
             with LOCK:
                 snapshot = dict(STATE)
