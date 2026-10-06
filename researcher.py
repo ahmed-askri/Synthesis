@@ -19,22 +19,23 @@ SYSTEM = (
 
 
 def extract_claims(question, source_ids, db_path=db.DB_PATH, ask_fn=llm.ask_json):
-    """Ask the model for claims, keep only those that cite real sources,
-    save them to the evidence store, and return their claim IDs."""
-    blocks, valid_ids = [], set()
+    """Ask the model about ONE source at a time, so every source gets read.
+    Keep only claims that cite that source, save them, return their claim IDs."""
+    claim_ids = []
     for sid in source_ids:
         src = db.get_source(sid, db_path)
         if src is None or src["quarantined"]:
             continue
-        valid_ids.add(sid)
-        blocks.append(f'<source id="{sid}">\n{src["text"][:2000]}\n</source>')
-
-    user = f"Question: {question}\n\nSources:\n" + "\n\n".join(blocks)
-    data = ask_fn(SYSTEM, user)
-
-    claim_ids = []
-    for claim in data.get("claims", []):
-        ids = claim.get("source_ids", [])
-        if ids and all(i in valid_ids for i in ids):
-            claim_ids.append(db.add_claim(claim["text"], ids, db_path))
+        user = (f"Question: {question}\n\nSources:\n"
+                f'<source id="{sid}">\n{src["text"][:2000]}\n</source>')
+        try:
+            data = ask_fn(SYSTEM, user)
+        except ValueError:
+            continue  # unreadable answer for one source should not lose the others
+        if not isinstance(data, dict):
+            continue
+        for claim in data.get("claims", []):
+            ids = claim.get("source_ids", [])
+            if ids and all(i == sid for i in ids):
+                claim_ids.append(db.add_claim(claim["text"], ids, db_path))
     return claim_ids

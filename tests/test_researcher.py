@@ -23,3 +23,20 @@ def test_extract_claims_keeps_only_valid_citations(tmp_path):
     assert len(ids) == 1
     assert claims[0]["text"] == "Evals matter."
     assert claims[0]["source_ids"] == [s1]
+
+def test_every_source_is_read_separately(tmp_path):
+    path = tmp_path / "t.db"
+    db.init_db(path)
+    a = db.add_source("https://a.com", "A", "Text about A.", "web", path)
+    b = db.add_source("https://b.com", "B", "Text about B.", "web", path)
+    prompts = []
+
+    def fake_ask(system, user):
+        prompts.append(user)
+        sid = a if "Text about A." in user else b
+        return {"claims": [{"text": f"Claim about {sid}.", "source_ids": [sid]}]}
+
+    ids = extract_claims("q?", [a, b], path, ask_fn=fake_ask)
+    assert len(prompts) == 2
+    assert len(ids) == 2
+    assert "Text about B." not in prompts[0]

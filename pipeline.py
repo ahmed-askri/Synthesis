@@ -8,7 +8,7 @@ import researcher
 import writer
 from guardrails.approval import cli_approve, save_with_approval
 from guardrails.sanitize import scan_sources
-from query_planner import plan_query
+from query_planner import plan_groups, search_with_relaxation
 from tools.arxiv_search import search_arxiv
 from tools.web_search import TRUSTED_DOMAINS, search_web
 
@@ -19,9 +19,10 @@ def run(question, max_papers=5, max_web=3, db_path=db.DB_PATH, fresh=True,
         Path(db_path).unlink(missing_ok=True)
     db.init_db(db_path)
 
-    query = plan_query(question)
-    log(f"[plan]  query: {query}")
-    found = search_arxiv(query, max_results=max_papers, db_path=db_path)
+    groups = plan_groups(question)
+    found, query = search_with_relaxation(
+        groups, lambda q: search_arxiv(q, max_results=max_papers, db_path=db_path), log=log)
+    log(f"[plan]  query: {query or question}")
     if not found:
         log("        no results, falling back to the raw question")
         found = search_arxiv(question, max_results=max_papers, db_path=db_path)

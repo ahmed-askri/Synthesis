@@ -1,5 +1,5 @@
 import os
-
+from urllib.parse import urlparse
 from dotenv import load_dotenv
 from tavily import TavilyClient
 
@@ -34,13 +34,18 @@ def search_web(query: str, max_results: int = 5, db_path=db.DB_PATH, client=None
         options["include_domains"] = include_domains
     response = client.search(**options)
 
-    results = []
+    results, seen = [], set()
     for item in response.get("results", []):
+        url = item["url"].split("#")[0]
         text = clean_web_text(f"{item['title']}\n\n{item['content']}")
-        source_id = db.add_source(item["url"], item["title"], text, "web", db_path)
+        origin = "arxiv" if (urlparse(url).hostname or "") in ("arxiv.org", "www.arxiv.org") else "web"
+        source_id = db.add_source(url, item["title"], text, origin, db_path)
+        if source_id in seen:
+            continue
+        seen.add(source_id)
         results.append({
             "source_id": source_id,
             "title": item["title"],
-            "url": item["url"],
+            "url": url,
         })
     return results
