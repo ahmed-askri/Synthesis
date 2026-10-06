@@ -1,5 +1,5 @@
 # Synthesis
-
+[![CI](https://github.com/ahmed-askri/Synthesis/actions/workflows/ci.yml/badge.svg)](https://github.com/ahmed-askri/Synthesis/actions)
 A research assistant for AI agent engineering. Ask a question, and Synthesis finds relevant arXiv papers, extracts claims, checks each claim against its source, and writes a short report where every sentence cites a real paper.
 
 > Work in progress. The core pipeline and web interface work. Guardrails, the multi-agent rebuild and the evaluation suite are next.

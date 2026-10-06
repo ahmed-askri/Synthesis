@@ -6,6 +6,7 @@ import evidence_db as db
 import fact_checker
 import researcher
 import writer
+from guardrails.sanitize import scan_sources
 from query_planner import plan_query
 from tools.arxiv_search import search_arxiv
 
@@ -25,6 +26,11 @@ def run(question, max_papers=5, db_path=db.DB_PATH, fresh=True, log=print):
     log(f"[1/4] search:   {len(source_ids)} sources")
     for p in papers:
         log(f"        - {p['title']}")
+
+    flagged = scan_sources(source_ids, db_path)
+    for f in flagged:
+        log(f"[scan]  excluded: {f['title']} ({', '.join(f['reasons'])})")
+    log(f"[scan]  {len(flagged)} of {len(source_ids)} sources excluded as suspicious")
 
     researcher.extract_claims(question, source_ids, db_path)
     n_claims = len(db.get_claims("unchecked", db_path))
