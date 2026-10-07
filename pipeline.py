@@ -10,7 +10,18 @@ from guardrails.approval import cli_approve, save_with_approval
 from guardrails.sanitize import scan_sources
 from query_planner import plan_groups, search_with_relaxation
 from tools.arxiv_search import search_arxiv
+from tools.registry import ToolRegistry
 from tools.web_search import TRUSTED_DOMAINS, search_web
+
+
+def make_registry(db_path):
+    """All search tools live here. Roles can only call what they are allowed."""
+    reg = ToolRegistry()
+    reg.register("search_arxiv", lambda query, max_results: search_arxiv(
+        query, max_results=max_results, db_path=db_path))
+    reg.register("search_web", lambda query, max_results, include_domains=None: search_web(
+        query, max_results=max_results, db_path=db_path, include_domains=include_domains))
+    return reg
 
 
 def run(question, max_papers=5, max_web=3, db_path=db.DB_PATH, fresh=True,
@@ -19,18 +30,22 @@ def run(question, max_papers=5, max_web=3, db_path=db.DB_PATH, fresh=True,
         Path(db_path).unlink(missing_ok=True)
     db.init_db(db_path)
 
+    tools = make_registry(db_path)
+
     groups = plan_groups(question)
     found, query = search_with_relaxation(
-        groups, lambda q: search_arxiv(q, max_results=max_papers, db_path=db_path), log=log)
+        groups,
+        lambda q: tools.call("researcher", "search_arxiv", query=q, max_results=max_papers),
+        log=log)
     log(f"[plan]  query: {query or question}")
     if not found:
         log("        no results, falling back to the raw question")
-        found = search_arxiv(question, max_results=max_papers, db_path=db_path)
+        found = tools.call("researcher", "search_arxiv", query=question, max_results=max_papers)
 
     if use_web:
         try:
-            web = search_web(question, max_results=max_web, db_path=db_path,
-                             include_domains=TRUSTED_DOMAINS)
+            web = tools.call("researcher", "search_web", query=question,
+                             max_results=max_web, include_domains=TRUSTED_DOMAINS)
             if not web:
                 log("[web]   no results from trusted domains")
             found += web
@@ -58,6 +73,9 @@ def run(question, max_papers=5, max_web=3, db_path=db.DB_PATH, fresh=True,
     out = writer.write_report(question, db_path)
     log(f"[4/4] write:    {len(out['invalid_citations'])} invalid citations, "
         f"{len(out['uncited_sentences'])} uncited sentences")
+
+    for role, tool in tools.denied:
+        log(f"[tools] BLOCKED: {role} tried to call {tool}")
 
     if not out["ok"]:
         log("        REJECTED: report failed the citation check")
