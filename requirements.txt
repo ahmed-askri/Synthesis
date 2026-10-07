@@ -3,3 +3,5 @@ tavily-python
 python-dotenv
 groq
 pytest
+mcp<2
+python-dotenv

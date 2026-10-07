@@ -14,23 +14,35 @@ from tools.registry import ToolRegistry
 from tools.web_search import TRUSTED_DOMAINS, search_web
 
 
-def make_registry(db_path):
-    """All search tools live here. Roles can only call what they are allowed."""
+def make_registry(db_path, use_mcp=True):
+    """All search tools live here. Roles can only call what they are allowed.
+    With use_mcp the tools run inside the MCP search server."""
     reg = ToolRegistry()
-    reg.register("search_arxiv", lambda query, max_results: search_arxiv(
-        query, max_results=max_results, db_path=db_path))
-    reg.register("search_web", lambda query, max_results, include_domains=None: search_web(
-        query, max_results=max_results, db_path=db_path, include_domains=include_domains))
+    if use_mcp:
+        from tools.mcp_client import SearchClient
+        client = SearchClient(db_path)
+        reg.register("search_arxiv", lambda query, max_results: client.call(
+            "search_arxiv", query=query, max_results=max_results))
+        # the server enforces the trusted domains, include_domains is ignored here
+        reg.register("search_web", lambda query, max_results, include_domains=None: client.call(
+            "search_web", query=query, max_results=max_results))
+    else:
+        reg.register("search_arxiv", lambda query, max_results: search_arxiv(
+            query, max_results=max_results, db_path=db_path))
+        reg.register("search_web", lambda query, max_results, include_domains=None: search_web(
+            query, max_results=max_results, db_path=db_path, include_domains=include_domains))
     return reg
 
 
 def run(question, max_papers=5, max_web=3, db_path=db.DB_PATH, fresh=True,
-        log=print, approve=None, use_web=True):
+        log=print, approve=None, use_web=True, use_mcp=True):
     if fresh:
         Path(db_path).unlink(missing_ok=True)
     db.init_db(db_path)
 
-    tools = make_registry(db_path)
+    tools = make_registry(db_path, use_mcp=use_mcp)
+    if use_mcp:
+        log("[mcp]   search tools run through the MCP server")
 
     groups = plan_groups(question)
     found, query = search_with_relaxation(
