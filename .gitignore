@@ -4,3 +4,5 @@ __pycache__/
 evidence.db
 reports/
 .pytest_cache/
+.venv-crew/
+crew.db
